@@ -1,7 +1,7 @@
 install: install-deps
 
 run:
-	node src/bin/gendiff.js 10
+	webpack src/index.js 
 
 install-deps:
 	npm ci

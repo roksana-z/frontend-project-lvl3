@@ -10,11 +10,19 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "css-loader": "^4.3.0",
     "eslint": "^7.7.0",
     "eslint-config-airbnb-base": "^14.2.0",
     "eslint-plugin-import": "^2.22.0",
     "html-webpack-plugin": "^4.4.1",
+    "style-loader": "^1.2.1",
     "webpack": "^4.44.1",
     "webpack-cli": "^3.3.12"
+  },
+  "dependencies": {
+    "axios": "^0.20.0",
+    "cors-anywhere": "^0.4.3",
+    "on-change": "^2.1.2",
+    "yup": "^0.29.3"
   }
 }
