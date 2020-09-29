@@ -3,7 +3,9 @@ import * as yup from 'yup';
 import './style.css';
 import text from './text.js';
 import i18next from 'i18next';
-
+import parse from   './parse.js';
+import render from './view.js';
+var _ = require('lodash');
 
 const sliceProtocol = (link, startPoint, endPoint) => {
     return link.slice(startPoint, endPoint);
@@ -11,15 +13,18 @@ const sliceProtocol = (link, startPoint, endPoint) => {
 
 const httpOrHttps = (link) => {
     if (link.includes('https')) {
-        return sliceProtocol(link, 5, link.length - 1);
+        return sliceProtocol(link, 5, link.length);
     }
-    return sliceProtocol(link, 4, link.length - 1);
+    return sliceProtocol(link, 4, link.length);
 }
 
 const ifExists = (link) => state.feeds.includes(link) ? true : false;
 
 const state = {
     feeds: [],
+    feeds2: [
+        
+    ]
 }
 
 const axios = require('axios');
@@ -35,12 +40,9 @@ const container = document.querySelector('.feeds-container');
 const formGroup = document.querySelector('.form-group');
 
 btn.addEventListener('click', () => {
-    schema
-        .isValid({
-        website: input.value,
-  })
+   schema.isValid({website: input.value})
   .then(function (valid) {
-    if (valid === false) {
+    if (!valid) {
         input.classList.add('red-border');
         const div = document.createElement('div');
         div.classList.add('clr-red', 'errors');
@@ -50,12 +52,9 @@ btn.addEventListener('click', () => {
     } else {
         input.classList.remove('red-border');
         var cors_api_url = 'https://api.codetabs.com/v1/proxy?quest=';
-        const options = {
-            method: 'GET',
-            url: input.value,
-        }
-        const pureLink = httpOrHttps(input.value);
-        if (ifExists(pureLink)) {
+        const url = input.value;
+        const urlWithoutProtocol = httpOrHttps(url);
+        if (ifExists(urlWithoutProtocol)) {
             const div = document.createElement('div');
             div.classList.add('clr-red', 'errors');
             div.innerHTML = i18next.t('exists');
@@ -63,51 +62,20 @@ btn.addEventListener('click', () => {
             url.after(div);
             return;
         }
-        state.feeds.push(pureLink);
-        console.log(state)
-        axios.get(`${cors_api_url}${options.url}`)
+        state.feeds.push(urlWithoutProtocol);
+      
+        axios.get(`${cors_api_url}${url}`)
         .then(function (response) {
             // handle success
-            const feed = document.createElement('div');
-            
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(response.data, "application/xml");
-         
-            const channel = doc.getElementsByTagName('channel');
-            const children = channel[0].childNodes;
-        
-            //parse
-            const title = Array.from(children).find((element, index, array) => element.nodeName === 'title').innerHTML;
-          
-            const items = Array.from(children).filter(el => el.nodeName === 'item').
-                map(el => el.childNodes);
-            const item = items.map(el => Array.prototype.slice.call(el)).
-                map(item => {
-                    const link =  item.find((element, index, array) => {
-                        return element.nodeName === 'link';
-                    })
-                    const text = item.find((element, index, array) => {
-                        return element.nodeName === 'title';
-                    })
-                    return {link: link.innerHTML, text: text.innerHTML}
-                });
+            const parsedNews = parse(response);
+            const comparableData = parsedNews.news.map(data => data.text).join(',');
+            const id = _.uniqueId();
+            state.feeds2.push({data: comparableData, id: id, link: urlWithoutProtocol});
 
-                //add feed
-                const itemContainer = document.createElement('div');
-                item.forEach(tagData => {
-                    const a = document.createElement('a');
-                    const div = document.createElement('div');
-                    a.setAttribute('href', tagData.link);
-                    a.innerHTML = tagData.text;
-                    div.append(a);
-                    itemContainer.append(div)
-                })
-                const h2 = document.createElement('h2');
-                h2.innerHTML= title;
-                itemContainer.prepend(h2)
-            itemContainer.classList.add('mb-30')
+          
+            const itemContainer = render(parsedNews);
+            itemContainer.setAttribute('id', id)
             container.append(itemContainer);
-            
         })
         .catch(function (error) {
             // handle error
@@ -115,16 +83,30 @@ btn.addEventListener('click', () => {
         })
         .then(function () {
            input.value = '';
-         
            const errors = document.querySelectorAll('.errors');
            
-           Array.from(errors).map( error => {
+           Array.from(errors).forEach( error => {
             const children = Array.from(formGroup.childNodes);
             const index =children.indexOf(error);
             formGroup.removeChild(formGroup.childNodes[index]);
            })
+
+
+           const promise2 = () => new Promise((resolve, reject) => {
+                const a = state.feeds2.map(feedData => {
+                    return axios.get(`${cors_api_url}https${feedData.link}`)
+                    .then(function (response) {
+                            const items = parse(response);
+                            const comparableData = items.news.map(data => data.text).join(',');
+                            return comparableData === feedData.data;
+                    })
+                })
+                    resolve(Promise.all(a));
+              });
            
-        });
+           promise2().then((result) => window.setInterval(promise2, 5000))
+           
+        })
         
        
     }
