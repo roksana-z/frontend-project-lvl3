@@ -98,13 +98,36 @@ btn.addEventListener('click', () => {
                     .then(function (response) {
                             const items = parse(response);
                             const comparableData = items.news.map(data => data.text).join(',');
-                            return comparableData === feedData.data;
+                            if (comparableData !== feedData.data) {
+                                feedData.data = comparableData;
+                                feedData.dataForRender = items;
+                                return feedData;
+                            };
+                            return {};
                     })
                 })
-                    resolve(Promise.all(a));
+
+                    resolve(Promise.all(a).
+                    then((result) => {
+                        const filteredREsult = result.filter(el => Object.keys(el).length > 0);
+                        if (filteredREsult.length > 0) {
+                            filteredREsult.forEach(feed => {
+                                const id = feed.id;
+                                console.log(id)
+                                const changedFeed = document.getElementById(id);
+                                const updatedFeed = render(feed.dataForRender);
+                                updatedFeed.setAttribute('id', id)
+                                changedFeed.replaceWith(updatedFeed)
+                                // changedFeed.innerHTML = render(feed.dataForRender);
+                            })
+                        }
+                        console.log(filteredREsult)
+                        
+                        window.setTimeout(promise2, 5000)
+                    }))
               });
            
-           promise2().then((result) => window.setInterval(promise2, 5000))
+           promise2();
            
         })
         
