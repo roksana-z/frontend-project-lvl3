@@ -1,34 +1,18 @@
-const onChange = require('on-change');
+
 import * as yup from 'yup';
 import './style.css';
-import text from './text.js';
-import i18next from 'i18next';
 import parse from   './parse.js';
-import render from './view.js';
-var _ = require('lodash');
+import watchedState from './view.js';
+import _ from 'lodash';
+import axios from 'axios';
 
-const sliceProtocol = (link, startPoint, endPoint) => {
-    return link.slice(startPoint, endPoint);
-}
+const sliceProtocol = (link) => link.slice(link.includes('https') ? 5 : 4, link.length);
 
-const httpOrHttps = (link) => {
-    if (link.includes('https')) {
-        return sliceProtocol(link, 5, link.length);
-    }
-    return sliceProtocol(link, 4, link.length);
-}
-
-const ifExists = (link) => state.feeds.includes(link) ? true : false;
+const isExists = (link) => state.feeds.filter(el => el.link === link).length > 0 ? true : false;
 
 const state = {
     feeds: [],
-    feeds2: [
-        
-    ]
 }
-
-const axios = require('axios');
-i18next.init(text);
 
 let schema = yup.object().shape({
   website: yup.string().url(),
@@ -36,104 +20,66 @@ let schema = yup.object().shape({
 
 const btn = document.querySelector('.btn');
 const input = document.querySelector('input');
-const container = document.querySelector('.feeds-container');
-const formGroup = document.querySelector('.form-group');
+const cors_api_url = 'https://api.codetabs.com/v1/proxy?quest=';
+
+
+const promise = () => new Promise((resolve) => {
+    const changedFeed = state.feeds.map(feedData => {
+        return axios.get(`${cors_api_url}https${feedData.link}`)
+                .then(function (response) {
+                    const items = parse(response);
+                    const comparableData = items.news.map(data => data.text).join(',');
+                    if (comparableData !== feedData.data) {
+                        feedData.data = comparableData;
+                        feedData.dataForRender = items;
+                        return feedData;
+                    };
+                    return null;
+        })
+    })
+
+    resolve(Promise.all(changedFeed)
+    .then((result) => {
+        result.filter(el => el !== null).forEach(feed => {
+            const id = feed.id;
+            console.log('update');
+            watchedState.replacingFeed = {dataForRender: feed.dataForRender, id: id};
+        })
+        window.setTimeout(promise, 5000)
+    }))
+});
+
 
 btn.addEventListener('click', () => {
-   schema.isValid({website: input.value})
-  .then(function (valid) {
-    if (!valid) {
-        input.classList.add('red-border');
-        const div = document.createElement('div');
-        div.classList.add('clr-red', 'errors');
-        div.innerHTML = i18next.t('invalidLink');
-        const url = document.querySelector('.form-control');
-        url.after(div);
-    } else {
-        input.classList.remove('red-border');
-        var cors_api_url = 'https://api.codetabs.com/v1/proxy?quest=';
-        const url = input.value;
-        const urlWithoutProtocol = httpOrHttps(url);
-        if (ifExists(urlWithoutProtocol)) {
-            const div = document.createElement('div');
-            div.classList.add('clr-red', 'errors');
-            div.innerHTML = i18next.t('exists');
-            const url = document.querySelector('.form-control');
-            url.after(div);
+    schema.isValid({website: input.value})
+    .then(function (valid) {
+        watchedState.valid = valid;
+        if (!valid) {
             return;
         }
-        state.feeds.push(urlWithoutProtocol);
-      
+        const url = input.value;
+        const urlWithoutProtocol = sliceProtocol(url);
+        watchedState.isLinkExists = isExists(urlWithoutProtocol);
+        if (isExists(urlWithoutProtocol)) {
+            return;
+        }
+
         axios.get(`${cors_api_url}${url}`)
         .then(function (response) {
-            // handle success
             const parsedNews = parse(response);
             const comparableData = parsedNews.news.map(data => data.text).join(',');
             const id = _.uniqueId();
-            state.feeds2.push({data: comparableData, id: id, link: urlWithoutProtocol});
-
-          
-            const itemContainer = render(parsedNews);
-            itemContainer.setAttribute('id', id)
-            container.append(itemContainer);
+            state.feeds.push({data: comparableData, id: id, link: urlWithoutProtocol});
+            watchedState.renderingFeed = {parsedNews: parsedNews, id: id};
         })
         .catch(function (error) {
-            // handle error
             console.log(error);
         })
-        .then(function () {
-           input.value = '';
-           const errors = document.querySelectorAll('.errors');
-           
-           Array.from(errors).forEach( error => {
-            const children = Array.from(formGroup.childNodes);
-            const index =children.indexOf(error);
-            formGroup.removeChild(formGroup.childNodes[index]);
-           })
-
-
-           const promise2 = () => new Promise((resolve, reject) => {
-                const a = state.feeds2.map(feedData => {
-                    return axios.get(`${cors_api_url}https${feedData.link}`)
-                    .then(function (response) {
-                            const items = parse(response);
-                            const comparableData = items.news.map(data => data.text).join(',');
-                            if (comparableData !== feedData.data) {
-                                feedData.data = comparableData;
-                                feedData.dataForRender = items;
-                                return feedData;
-                            };
-                            return {};
-                    })
-                })
-
-                    resolve(Promise.all(a).
-                    then((result) => {
-                        const filteredREsult = result.filter(el => Object.keys(el).length > 0);
-                        if (filteredREsult.length > 0) {
-                            filteredREsult.forEach(feed => {
-                                const id = feed.id;
-                                console.log(id)
-                                const changedFeed = document.getElementById(id);
-                                const updatedFeed = render(feed.dataForRender);
-                                updatedFeed.setAttribute('id', id)
-                                changedFeed.replaceWith(updatedFeed)
-                                // changedFeed.innerHTML = render(feed.dataForRender);
-                            })
-                        }
-                        console.log(filteredREsult)
-                        
-                        window.setTimeout(promise2, 5000)
-                    }))
-              });
-           
-           promise2();
-           
+        .then(() => {
+            watchedState.cleanErrors = 'clean';
+            watchedState.cleanErrors = null;
+            promise(); 
         })
-        
-       
-    }
-  });
-    
-})
+    })
+});
 
