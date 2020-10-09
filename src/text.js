@@ -1,11 +1,11 @@
 export default {
-  lng: 'en',
+  lng: "en",
   debug: true,
   resources: {
     en: {
       translation: {
-        invalidLink: 'this must be a valid URL',
-        exists: 'Rss already exists',
+        invalidLink: "this must be a valid URL",
+        exists: "Rss already exists",
       },
     },
   },

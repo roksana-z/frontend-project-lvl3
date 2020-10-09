@@ -11,21 +11,14 @@ module.exports = {
   module: {
     rules: [
       {
-        exclude: /node_modules/,
         test: /\.css$/,
-        use: [
-          'style-loader',
-          'css-loader',
-        ],
+        use: ['style-loader', 'css-loader'],
       },
     ],
   },
-  resolve: {
-    extensions: ['.js', '.ts'],
-  },
   plugins: [
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'src/template.html'),
+      template: path.resolve(__dirname, 'src/index.html'),
     }),
   ],
 };
