@@ -7,73 +7,65 @@ import parse from "./parse.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import view from "./view.js";
 import text from "./text.js";
+import { setLocale } from "yup";
 
 const sliceProtocol = (link) =>
   link.slice(link.includes("https") ? 5 : 4, link.length);
 
 const form = document.querySelector("form");
-const input = document.querySelector("input");
 const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=";
 
-const promise = (state, feeds) =>
-  new Promise((resolve) => {
-    const changedFeed = feeds.map((feedData) =>
-      axios.get(`${proxyUrl}https${feedData.link}`).then((response) => {
-        const items = parse(response);
-        const comparableData = items.news.map((data) => data.text).join(",");
-        if (comparableData !== feedData.data) {
-          const newFeedData = feedData;
-          newFeedData.data = comparableData;
-          newFeedData.dataForRender = items;
-          return newFeedData;
-        }
-        return null;
-      })
-    );
+const updateFeed = (state) => {
+  state.feeds.map((feedData) => {
+    axios.get(`${proxyUrl}${feedData.url}`).then((response) => {
+      const newData = parse(response);
+      const oldDataa = state.posts.filter((post) => post.id === feedData.id);
+      const difference = _.differenceWith(
+        newData.news,
+        oldDataa[0].posts,
+        _.isEqual
+      );
+      if (difference.length > 0) {
+        const newPosts = state.posts.filter((post) => post.id !== feedData.id);
+        onChange.target(state).posts = newPosts;
+        const posts = newData.news.map((post) => post);
+        state.posts.unshift({ posts, id: feedData.id });
+      }
+    });
+  });
+  window.setTimeout(() => updateFeed(state), 5000);
+};
 
-    resolve(
-      Promise.all(changedFeed).then((result) => {
-        result
-          .filter((el) => el !== null)
-          .forEach((feed) => {
-            const id = feed.id;
-            // eslint-disable-next-line no-param-reassign
-            state.replacingFeed = { dataForRender: feed.dataForRender, id };
-          });
-        window.setTimeout(() => promise(state, feeds), 5000);
-      })
-    );
+const tryValidation = (validationObject, links) => {
+  setLocale({
+    mixed: {
+      notOneOf: i18next.t("exists"),
+    },
+    string: {
+      url: i18next.t("invalidLink"),
+    },
   });
 
-const tryValidation = (validationObject, watchedState, links) => {
   const schema = yup.object().shape({
     website: yup.string().url(),
     notOneOf: yup.mixed().notOneOf(links),
   });
-  const result = schema.isValid(validationObject).then((valid) => {
-    switch (Object.keys(validationObject).join()) {
-      case "website":
-        watchedState.valid = valid;
-        return valid;
-      case "notOneOf":
-        watchedState.isLinkExists = valid;
-        return valid;
-      default:
-        break;
-    }
-  });
-  return result;
+
+  return schema.validate(validationObject).catch((err) => err.errors);
 };
 
 export default () => {
   i18next.init(text);
 
   const state = {
-    valid: true,
-    isLinkExists: false,
-    cleanErrors: null,
-    replacingFeed: null,
-    renderingFeed: null,
+    form: {
+      valid: true,
+      errors: [],
+    },
+    feedsProcess: {
+      state: "readyToLoad",
+    },
+    posts: [],
     feeds: [],
     links: [],
   };
@@ -82,44 +74,33 @@ export default () => {
     view(path, value);
   });
 
+  updateFeed(watchedState);
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get("url");
-    tryValidation({ website: url }, watchedState, state.links).then(
-      (validLink) => {
-        const urlWithoutProtocol = sliceProtocol(url);
-        tryValidation(
-          { notOneOf: urlWithoutProtocol },
-          watchedState,
-          state.links
-        ).then((validExists) => {
-          if (!validLink || !validExists) {
-            return;
-          }
-          state.links.push(urlWithoutProtocol);
-          axios
-            .get(`${proxyUrl}${url}`)
-            .then((response) => {
-              const parsedNews = parse(response);
-              const comparableData = parsedNews.news
-                .map((data) => data.text)
-                .join(",");
-              const id = _.uniqueId();
-              state.feeds.push({
-                data: comparableData,
-                id,
-                link: urlWithoutProtocol,
-              });
-              watchedState.renderingFeed = { parsedNews, id };
-            })
-            .then(() => {
-              watchedState.cleanErrors = "clean";
-              watchedState.cleanErrors = null;
-              promise(watchedState, state.feeds);
-            });
-        });
+    const urlWithoutProtocol = sliceProtocol(url);
+    watchedState.feedsProcess.state = "loading";
+    tryValidation(
+      { website: url, notOneOf: urlWithoutProtocol },
+      state.links
+    ).then((validationAnswer) => {
+      if (Array.isArray(validationAnswer)) {
+        watchedState.form.valid = false;
+        watchedState.form.errors = validationAnswer;
+        return;
       }
-    );
+      watchedState.form.valid = true;
+      state.links.push(urlWithoutProtocol);
+      axios.get(`${proxyUrl}${url}`).then((response) => {
+        const parsedNews = parse(response);
+        const id = _.uniqueId();
+        watchedState.feeds.unshift({ ...parsedNews, id, url });
+        const posts = parsedNews.news.map((post) => post);
+        watchedState.posts.unshift({ posts, id });
+        watchedState.feedsProcess.state = "readyToLoad";
+      });
+    });
   });
 };

@@ -7,7 +7,6 @@ export default (response) => {
 
   const title = channel[0].querySelector("title").innerHTML;
   const description = channel[0].querySelector("description").innerHTML;
-  console.log(description);
 
   const item = Array.from(items).map((feed) => {
     const link = feed.querySelector("link");
