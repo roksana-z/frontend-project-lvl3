@@ -12,10 +12,8 @@ import { setLocale } from "yup";
 const sliceProtocol = (link) =>
   link.slice(link.includes("https") ? 5 : 4, link.length);
 
-const form = document.querySelector("form");
-const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=";
-
-const updateFeed = (state) => {
+const updateFeed = (state, proxyUrl) => {
+  console.log(proxyUrl)
   state.feeds.map((feedData) => {
     axios.get(`${proxyUrl}${feedData.url}`).then((response) => {
       const newData = parse(response);
@@ -33,7 +31,7 @@ const updateFeed = (state) => {
       }
     });
   });
-  window.setTimeout(() => updateFeed(state), 5000);
+  window.setTimeout(() => updateFeed(state, proxyUrl), 5000);
 };
 
 const tryValidation = (validationObject, links) => {
@@ -57,6 +55,9 @@ const tryValidation = (validationObject, links) => {
 export default () => {
   i18next.init(text);
 
+  const form = document.querySelector("form");
+  const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=";
+
   const state = {
     form: {
       valid: true,
@@ -74,7 +75,7 @@ export default () => {
     view(path, value);
   });
 
-  updateFeed(watchedState);
+  updateFeed(watchedState, proxyUrl);
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -84,7 +85,7 @@ export default () => {
     watchedState.feedsProcess.state = "loading";
     tryValidation(
       { website: url, notOneOf: urlWithoutProtocol },
-      state.links
+      watchedState.links
     ).then((validationAnswer) => {
       if (Array.isArray(validationAnswer)) {
         watchedState.form.valid = false;
