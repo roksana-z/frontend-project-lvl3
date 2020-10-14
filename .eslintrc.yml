@@ -1,13 +1,18 @@
 ---
+
+# https://eslint.org/docs/user-guide/configuring#specifying-environments
 env:
+  node: true
   browser: true
-  es6: true
+  es2020: true
+
 extends:
-  - airbnb-base
+  - 'airbnb-base'
+
 parserOptions:
+  ecmaVersion: 11
   sourceType: module
-  ecmaVersion: 6
+
 rules:
-  import/extensions: 0
-  import/prefer-default-export: 0
-  prefer-destructuring: 0
+  no-console: 0
+  import/extensions: 0 # FIXME: remove when rule will be adjusted for new nodejs version

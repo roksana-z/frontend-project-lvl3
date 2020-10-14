@@ -12,10 +12,10 @@ export default (path, value) => {
     container.append(feedContainer);
   };
 
-  const renderError = (err) => {
+  const renderError = ([err]) => {
     const div = document.createElement('div');
     div.classList.add('invalid-feedback', 'errors');
-    div.innerHTML = err[0];
+    div.innerHTML = err;
     const url = document.querySelector('.form-control');
     url.after(div);
   };
