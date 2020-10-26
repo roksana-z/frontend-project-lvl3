@@ -1,16 +1,17 @@
-import * as yup from "yup";
-import _ from "lodash";
-import axios from "axios";
-import onChange from "on-change";
-import i18next from "i18next";
-import parse from "./parse.js";
-import "bootstrap/dist/css/bootstrap.min.css";
-import view from "./view.js";
-import ru from "./locales/ru.js";
-import en from "./locales/en.js";
+import * as yup from 'yup';
+import _ from 'lodash';
+import axios from 'axios';
+import onChange from 'on-change';
+import i18next from 'i18next';
+import parse from './parse.js';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { renderChannel, renderState } from './view.js';
+import ru from './locales/ru.js';
+import en from './locales/en.js';
 
-const sliceProtocol = (link) =>
-  link.slice(link.includes("https") ? 5 : 4, link.length);
+const sliceProtocol = (link) => link.slice(link.includes('https') ? 5 : 4, link.length);
+
+const compareTitles = (data1, data2) => data1.text === data2.text;
 
 const updateFeed = (state, proxyUrl) => {
   state.feeds.forEach((feedData) => {
@@ -18,22 +19,16 @@ const updateFeed = (state, proxyUrl) => {
       .get(`${proxyUrl}${feedData.url}`)
       .then((response) => {
         const newData = parse(response);
-        const oldDataa = state.posts.filter(
-          (post) => post.id === feedData.feedId
+        const oldPosts = state.posts.filter(
+          (post) => post.feedId === feedData.feedId,
         );
-        const newDataWithID = newData.news.map((post) => ({
-          ...post,
-          feedId: feedData.feedId,
-        }));
-        const difference = _.differenceWith(oldDataa, newDataWithID, _.isEqual);
-
+        const newPosts = newData.news.map((post) => (post));
+        const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
+        console.log(difference)
         if (difference.length > 0) {
-          // const newPosts = state.posts.filter(
-          //   (post) => post.id !== feedData.id
-          // );
-          // onChange.target(state).posts = newPosts;
-          // const posts = newData.news.map((post) => post);
-          state.posts.unshift(...difference);
+          const differenceWithId = difference.map((diff) => ({ ...diff, feedId: feedData.feedId }));
+          state.posts.unshift(...differenceWithId);
+          renderChannel(state, feedData);
         }
       })
       .catch((err) => state.form.errors.unshift(err.response.status));
@@ -59,12 +54,12 @@ const tryValidation = (url, existingUrl, urls) => {
 export default () => {
   i18next.init({
     resources: { en, ru },
-    lng: "en",
+    lng: 'en',
     debug: true,
   });
 
-  const form = document.querySelector("form");
-  const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=";
+  const form = document.querySelector('form');
+  const proxyUrl = 'https://hidden-lake-93699.herokuapp.com/';
 
   const state = {
     form: {
@@ -72,7 +67,8 @@ export default () => {
       errors: [],
     },
     feedsProcess: {
-      state: "readyToLoad",
+      state: 'readyToLoad',
+      currentState: { },
     },
     posts: [],
     feeds: [],
@@ -80,20 +76,20 @@ export default () => {
   };
 
   const watchedState = onChange(state, (path, value) => {
-    view(path, value);
+    renderState(path, value);
   });
 
   updateFeed(watchedState, proxyUrl);
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const url = formData.get("url");
+    const url = formData.get('url');
     const urlWithoutProtocol = sliceProtocol(url);
     const validationErrors = tryValidation(
       url,
       urlWithoutProtocol,
-      state.links
+      state.links,
     );
     if (validationErrors.length > 0) {
       watchedState.form.valid = false;
@@ -114,9 +110,10 @@ export default () => {
         };
         watchedState.feeds.unshift({ ...feed });
         const posts = parsedNews.news.map((post) => ({ feedId: id, ...post }));
-        watchedState.feedsProcess.status = "loading";
+        watchedState.feedsProcess.state = 'loading';
         watchedState.posts.unshift(...posts);
-        watchedState.feedsProcess.state = "readyToLoad";
+        renderChannel(watchedState, feed);
+        watchedState.feedsProcess.state = 'readyToLoad';
       })
       .catch((err) => watchedState.form.errors.unshift(err.response.status));
   });
