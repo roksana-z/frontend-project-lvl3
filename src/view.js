@@ -1,10 +1,11 @@
 import i18next from 'i18next';
+import _ from 'lodash';
 
 const container = document.querySelector('.feeds-container');
 const formGroup = document.querySelector('.form-group');
 const input = document.querySelector('input');
 
-export const renderFeed = (feed) => {
+const renderFeed = (feed) => {
   const h2 = document.createElement('h2');
   h2.innerHTML = feed.title;
   return h2;
@@ -18,7 +19,7 @@ export const renderError = ([err]) => {
   url.after(div);
 };
 
-export const renderPosts = (posts) => {
+const renderPosts = (posts) => {
   const postsContainer = [];
   posts.forEach((post) => {
     const a = document.createElement('a');
@@ -33,9 +34,11 @@ export const renderPosts = (posts) => {
   return div;
 };
 
-export const renderChannel = (state, feed) => {
-  const { feedId } = feed;
-  const posts = state.posts.filter((post) => post.feedId === feedId);
+const renderChannel = (state, allPosts, oldPosts) => {
+  const newPosts = _.differenceWith(allPosts, oldPosts);
+  const { feedId } = newPosts[0];
+  const currentPosts = state.posts.filter(post => post.feedId === feedId);
+  const feed = state.feeds.filter(feed => feed.feedId === feedId);
   let channelContainer = document.getElementById(feedId);
   if (!channelContainer) {
     channelContainer = document.createElement('div');
@@ -43,13 +46,13 @@ export const renderChannel = (state, feed) => {
     container.append(channelContainer);
   }
   channelContainer.innerHTML = '';
-  const htmlFeed = renderFeed(feed);
-  const htmlPosts = renderPosts(posts);
+  const htmlFeed = renderFeed(...feed);
+  const htmlPosts = renderPosts(currentPosts);
   channelContainer.prepend(htmlFeed);
   channelContainer.append(htmlPosts);
 };
 
-export const renderValidation = (valid) => {
+const renderValidation = (valid) => {
   if (valid) {
     input.classList.remove('is-invalid');
   } else {
@@ -57,12 +60,15 @@ export const renderValidation = (valid) => {
   }
 };
 
-export const renderState = (path, value) => {
+export const renderState = (path, value, state, previousValue) => {
   if (path === 'form.valid') {
     renderValidation(value);
   }
   if (path === 'form.errors') {
     renderError(value);
+  }
+  if (path === 'posts') {
+    renderChannel(state, value, previousValue);
   }
   if (path === 'feedsProcess.state' && value === 'readyToLoad') {
     input.value = '';

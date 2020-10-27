@@ -5,30 +5,23 @@ import onChange from 'on-change';
 import i18next from 'i18next';
 import parse from './parse.js';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { renderChannel, renderState } from './view.js';
+import { renderState } from './view.js';
 import ru from './locales/ru.js';
 import en from './locales/en.js';
-
-const sliceProtocol = (link) => link.slice(link.includes('https') ? 5 : 4, link.length);
 
 const compareTitles = (data1, data2) => data1.text === data2.text;
 
 const updateFeed = (state, proxyUrl) => {
   state.feeds.forEach((feedData) => {
     axios
-      .get(`${proxyUrl}${feedData.url}`)
-      .then((response) => {
+      .get(`${proxyUrl}${feedData.url}`).then((response) => {
         const newData = parse(response);
-        const oldPosts = state.posts.filter(
-          (post) => post.feedId === feedData.feedId,
-        );
+        const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
         const newPosts = newData.news.map((post) => (post));
         const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
-        console.log(difference)
         if (difference.length > 0) {
           const differenceWithId = difference.map((diff) => ({ ...diff, feedId: feedData.feedId }));
           state.posts.unshift(...differenceWithId);
-          renderChannel(state, feedData);
         }
       })
       .catch((err) => state.form.errors.unshift(err.response.status));
@@ -36,7 +29,7 @@ const updateFeed = (state, proxyUrl) => {
   window.setTimeout(() => updateFeed(state, proxyUrl), 5000);
 };
 
-const tryValidation = (url, existingUrl, urls) => {
+const tryValidation = (url, urls) => {
   const schema = yup.object().shape({
     website: yup.string().url(),
     notOneOf: yup.mixed().notOneOf(urls),
@@ -44,7 +37,7 @@ const tryValidation = (url, existingUrl, urls) => {
   const errors = [];
 
   try {
-    schema.validateSync({ website: url, notOneOf: existingUrl });
+    schema.validateSync({ website: url, notOneOf: url });
   } catch (err) {
     errors.push(err.type);
   }
@@ -75,8 +68,8 @@ export default () => {
     links: [],
   };
 
-  const watchedState = onChange(state, (path, value) => {
-    renderState(path, value);
+  const watchedState = onChange(state, function (path, value, previousValue) {
+    renderState(path, value, this, previousValue);
   });
 
   updateFeed(watchedState, proxyUrl);
@@ -85,36 +78,24 @@ export default () => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get('url');
-    const urlWithoutProtocol = sliceProtocol(url);
-    const validationErrors = tryValidation(
-      url,
-      urlWithoutProtocol,
-      state.links,
-    );
+    const validationErrors = tryValidation(url, watchedState.links);
     if (validationErrors.length > 0) {
       watchedState.form.valid = false;
       watchedState.form.errors = validationErrors;
       return;
     }
     watchedState.form.valid = true;
-    state.links.push(urlWithoutProtocol);
-    axios
-      .get(`${proxyUrl}${url}`)
-      .then((response) => {
-        const parsedNews = parse(response);
-        const id = _.uniqueId();
-        const feed = {
-          feedId: id,
-          title: parsedNews.title,
-          url,
-        };
-        watchedState.feeds.unshift({ ...feed });
-        const posts = parsedNews.news.map((post) => ({ feedId: id, ...post }));
-        watchedState.feedsProcess.state = 'loading';
-        watchedState.posts.unshift(...posts);
-        renderChannel(watchedState, feed);
-        watchedState.feedsProcess.state = 'readyToLoad';
-      })
+    watchedState.links.push(url);
+    axios.get(`${proxyUrl}${url}`).then((response) => {
+      const parsedNews = parse(response);
+      const id = _.uniqueId();
+      const feed = { feedId: id, title: parsedNews.title, url };
+      watchedState.feeds.unshift(feed);
+      const posts = parsedNews.news.map((post) => ({ feedId: id, ...post }));
+      watchedState.feedsProcess.state = 'loading';
+      watchedState.posts.unshift(...posts);
+      watchedState.feedsProcess.state = 'readyToLoad';
+    })
       .catch((err) => watchedState.form.errors.unshift(err.response.status));
   });
 };
