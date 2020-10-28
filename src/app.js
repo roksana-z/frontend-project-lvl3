@@ -5,7 +5,7 @@ import onChange from 'on-change';
 import i18next from 'i18next';
 import parse from './parse.js';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { renderState } from './view.js';
+import renderState from './view.js';
 import ru from './locales/ru.js';
 import en from './locales/en.js';
 
@@ -68,6 +68,7 @@ export default () => {
     links: [],
   };
 
+  // eslint-disable-next-line func-names
   const watchedState = onChange(state, function (path, value, previousValue) {
     renderState(path, value, this, previousValue);
   });
@@ -96,6 +97,13 @@ export default () => {
       watchedState.posts.unshift(...posts);
       watchedState.feedsProcess.state = 'readyToLoad';
     })
-      .catch((err) => watchedState.form.errors.unshift(err.response.status));
+      .catch((err) => {
+        watchedState.form.valid = false;
+        if (!err.response) {
+          watchedState.form.errors = err.message;
+        } else {
+          watchedState.form.errors = err.response.status;
+        }
+      });
   });
 };
