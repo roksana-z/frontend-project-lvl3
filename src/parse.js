@@ -1,9 +1,14 @@
+function ParserError(message) {
+  this.name = 'parserError';
+  this.message = message;
+}
+
 export default (response) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(response.data, 'application/xml');
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
-    throw new Error('parserError');
+    throw new ParserError(parserError.textContent);
   }
   const channel = doc.getElementsByTagName('channel');
   const items = channel[0].querySelectorAll('item');
