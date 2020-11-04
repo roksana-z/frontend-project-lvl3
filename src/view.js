@@ -8,24 +8,26 @@ export const renderFeed = (feed) => {
 };
 
 export const renderError = (err) => {
+  const errors = document.querySelectorAll('.error');
+  Array.from(errors).forEach((error) => error.remove());
   const div = document.createElement('div');
-  div.classList.add('invalid-feedback', 'errors');
+  div.classList.add('invalid-feedback', 'error');
   div.innerHTML = i18next.t(err);
   const url = document.querySelector('.form-control');
   url.after(div);
 };
 
 export const renderPosts = (posts) => {
-  const postsContainer = posts.map((post) => {
+  const postsHtml = posts.map((post) => {
     const a = document.createElement('a');
     const div = document.createElement('div');
     a.setAttribute('href', post.link);
-    a.innerHTML = post.text;
+    a.innerHTML = post.title;
     div.append(a);
     return div.outerHTML;
   }).join('\n');
   const div = document.createElement('div');
-  div.innerHTML = postsContainer;
+  div.innerHTML = postsHtml;
   return div;
 };
 
@@ -60,21 +62,17 @@ export const renderValidation = (valid) => {
 export const renderStatus = (value) => {
   const btnSpiner = document.querySelector('.btn-spiner');
   const btn = document.querySelector('.btn');
-  const formGroup = document.querySelector('.form-group');
   const input = document.querySelector('input');
-  const errors = document.querySelectorAll('.errors');
+  const errors = document.querySelectorAll('.error');
+
   if (value === 'readyToLoad') {
     btnSpiner.classList.remove('spinner-border', 'spinner-border-sm');
     btn.disabled = false;
     input.value = '';
 
-    Array.from(errors).forEach((error) => {
-      const children = Array.from(formGroup.childNodes);
-      const index = children.indexOf(error);
-      formGroup.removeChild(formGroup.childNodes[index]);
-    });
+    Array.from(errors).forEach((error) => error.remove());
   }
-  if (value === 'loading failed') {
+  if (value === 'loadingFailed') {
     btnSpiner.classList.remove('spinner-border', 'spinner-border-sm');
     btn.disabled = false;
   }
