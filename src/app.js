@@ -14,21 +14,21 @@ import en from './locales/en.js';
 const proxyUrl = 'https://hidden-lake-93699.herokuapp.com/';
 const timeInterval = 5000;
 
-const compareTitles = (data1, data2) => data1.text === data2.text;
+const compareTitles = (data1, data2) => data1.title === data2.title;
 
 const updateFeed = (state, url) => {
   Promise.all(state.feeds.map((feedData) => axios.get(`${url}${feedData.url}`)
     .then((response) => {
       const newData = parse(response);
       const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
-      const newPosts = newData.posts.map((post) => (post));
+      const newPosts = newData.items.map((post) => (post));
       const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
       if (difference.length > 0) {
         const differenceWithId = difference.map((diff) => ({ ...diff, feedId: feedData.feedId }));
         state.posts.unshift(...differenceWithId);
       }
     })
-    .catch((err) => state.form.errors.unshift(err.response.status))))
+    .catch((err) => console.log(err))))
     .then(() => setTimeout(() => updateFeed(state, url), timeInterval));
 };
 
@@ -67,7 +67,6 @@ export default () => {
     },
     posts: [],
     feeds: [],
-    links: [],
   };
 
   const watchedState = onChange(state, (path, value, previousValue) => {
@@ -106,7 +105,7 @@ export default () => {
         const id = _.uniqueId();
         const feed = { feedId: id, title: parsedNews.title, url };
         watchedState.feeds.unshift(feed);
-        const posts = parsedNews.posts.map((post) => ({ feedId: id, ...post }));
+        const posts = parsedNews.items.map((post) => ({ feedId: id, ...post }));
         watchedState.posts.unshift(...posts);
         watchedState.feedsProcess.status = 'readyToLoad';
       })

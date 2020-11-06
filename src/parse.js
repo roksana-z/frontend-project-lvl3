@@ -7,16 +7,16 @@ export default (response) => {
     error.name = 'parserError';
     throw error;
   }
-  const channel = doc.getElementsByTagName('channel');
-  const items = channel[0].querySelectorAll('item');
+  const channel = doc.querySelector('channel');
+  const items = channel.querySelectorAll('item');
 
-  const title = channel[0].querySelector('title');
-  // const description = channel[0].querySelector('description').innerHTML;
+  const title = channel.querySelector('title').textContent;
+  const description = channel.querySelector('description').textContent;
 
   const posts = Array.from(items).map((feed) => {
     const link = feed.querySelector('link');
     const postTitle = feed.querySelector('title');
     return { link: link.textContent, title: postTitle.textContent };
   });
-  return { posts, title: title.textContent };
+  return { items: posts, title, description };
 };

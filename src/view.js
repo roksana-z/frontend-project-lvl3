@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import _ from 'lodash';
 
-export const renderFeed = (feed) => {
+export const getFeedHtml = (feed) => {
   const h2 = document.createElement('h2');
   h2.innerHTML = feed.title;
   return h2;
@@ -17,7 +17,7 @@ export const renderError = (err) => {
   url.after(div);
 };
 
-export const renderPosts = (posts) => {
+export const getPostsHtml = (posts) => {
   const postsHtml = posts.map((post) => {
     const a = document.createElement('a');
     const div = document.createElement('div');
@@ -44,8 +44,8 @@ export const renderChannel = (stateObj, allPosts, oldPosts) => {
     container.append(channelContainer);
   }
   channelContainer.innerHTML = '';
-  const htmlFeed = renderFeed(...curFeed);
-  const htmlPosts = renderPosts(currentPosts);
+  const htmlFeed = getFeedHtml(...curFeed);
+  const htmlPosts = getPostsHtml(currentPosts);
   channelContainer.prepend(htmlFeed);
   channelContainer.append(htmlPosts);
 };
