@@ -20,6 +20,7 @@ const updateFeed = (state, url) => {
   Promise.all(state.feeds.map((feedData) => axios.get(`${url}${feedData.url}`)
     .then((response) => {
       const newData = parse(response);
+      console.log('update');
       const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
       const newPosts = newData.items.map((post) => (post));
       const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
