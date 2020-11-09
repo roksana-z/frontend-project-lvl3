@@ -16,7 +16,7 @@ const timeInterval = 5000;
 
 const compareTitles = (data1, data2) => data1.title === data2.title;
 
-const updateFeed = (state, url) => {
+const updateFeeds = (state, url) => {
   Promise.all(state.feeds.map((feedData) => axios.get(`${url}${feedData.url}`)
     .then((response) => {
       const newData = parse(response);
@@ -29,7 +29,7 @@ const updateFeed = (state, url) => {
       }
     })
     .catch((err) => console.log(err))))
-    .then(() => setTimeout(() => updateFeed(state, url), timeInterval));
+    .then(() => setTimeout(() => updateFeeds(state, url), timeInterval));
 };
 
 const tryValidation = (url, urls) => {
@@ -84,7 +84,7 @@ export default () => {
     }
   });
 
-  updateFeed(watchedState, proxyUrl);
+  updateFeeds(watchedState, proxyUrl);
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
