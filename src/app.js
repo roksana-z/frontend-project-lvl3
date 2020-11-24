@@ -32,7 +32,7 @@ const updateFeeds = (state, url) => {
     .then(() => setTimeout(() => updateFeeds(state, url), timeInterval));
 };
 
-const tryValidation = (url, urls) => {
+const validate = (url, urls) => {
   const schema = yup.object().shape({
     website: yup.string().url(),
     notOneOf: yup.mixed().notOneOf(urls),
@@ -47,23 +47,16 @@ const tryValidation = (url, urls) => {
   return errors;
 };
 
-export default () => {
-  i18next.init({
-    resources: { en, ru },
-    lng: 'en',
-    debug: true,
-  });
-
+const runApp = () => {
   const form = document.querySelector('form');
 
   const state = {
     form: {
       valid: true,
-      errors: [],
+      error: [],
     },
     feedsProcess: {
       status: 'readyToLoad',
-      currentState: { },
     },
     posts: [],
     feeds: [],
@@ -73,7 +66,7 @@ export default () => {
     if (path === 'form.valid') {
       renderValidation(value);
     }
-    if (path === 'form.errors') {
+    if (path === 'form.error') {
       renderError(value);
     }
     if (path === 'posts') {
@@ -91,9 +84,9 @@ export default () => {
     const formData = new FormData(e.target);
     const url = formData.get('url');
     const existingUrls = watchedState.feeds.map((feed) => feed.url);
-    const validationErrors = tryValidation(url, existingUrls);
+    const validationErrors = validate(url, existingUrls);
     if (validationErrors.length > 0) {
-      watchedState.form.errors = validationErrors;
+      watchedState.form.error = validationErrors;
       watchedState.form.valid = false;
       return;
     }
@@ -113,10 +106,18 @@ export default () => {
         watchedState.feedsProcess.status = 'loadingFailed';
         watchedState.form.valid = false;
         if (!err.response) {
-          watchedState.form.errors = err.name;
+          watchedState.form.error = err.name;
         } else {
-          watchedState.form.errors = err.response.status;
+          watchedState.form.error = err.response.status;
         }
       });
   });
+};
+
+export default () => {
+  i18next.init({
+    resources: { en, ru },
+    lng: 'en',
+    debug: true,
+  }).then(() => runApp());
 };
