@@ -1,6 +1,11 @@
 import i18next from 'i18next';
 import _ from 'lodash';
 
+const container = document.querySelector('.feeds-container');
+const input = document.querySelector('input');
+const btnSpiner = document.querySelector('.btn-spiner');
+const btn = document.querySelector('.btn');
+
 export const getFeedHtml = (feed) => {
   const h2 = document.createElement('h2');
   h2.innerHTML = feed.title;
@@ -32,7 +37,6 @@ export const getPostsHtml = (posts) => {
 };
 
 export const renderChannel = (stateObj, allPosts, oldPosts) => {
-  const container = document.querySelector('.feeds-container');
   const newPosts = _.differenceWith(allPosts, oldPosts);
   const { feedId } = newPosts[0];
   const currentPosts = stateObj.posts.filter((post) => post.feedId === feedId);
@@ -51,7 +55,6 @@ export const renderChannel = (stateObj, allPosts, oldPosts) => {
 };
 
 export const renderValidation = (valid) => {
-  const input = document.querySelector('input');
   if (valid) {
     input.classList.remove('is-invalid');
   } else {
@@ -60,9 +63,6 @@ export const renderValidation = (valid) => {
 };
 
 export const renderStatus = (value) => {
-  const btnSpiner = document.querySelector('.btn-spiner');
-  const btn = document.querySelector('.btn');
-  const input = document.querySelector('input');
   const errors = document.querySelectorAll('.error');
 
   if (value === 'readyToLoad') {

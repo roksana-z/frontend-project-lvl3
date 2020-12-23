@@ -19,7 +19,7 @@ const compareTitles = (data1, data2) => data1.title === data2.title;
 const updateFeeds = (state, url) => {
   Promise.all(state.feeds.map((feedData) => axios.get(`${url}${feedData.url}`)
     .then((response) => {
-      const newData = parse(response);
+      const newData = parse(response.data);
       const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
       const newPosts = newData.items.map((post) => (post));
       const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
@@ -33,14 +33,11 @@ const updateFeeds = (state, url) => {
 };
 
 const validate = (url, urls) => {
-  const schema = yup.object().shape({
-    website: yup.string().url(),
-    notOneOf: yup.mixed().notOneOf(urls),
-  });
+  const schema = yup.string().url().required().notOneOf(urls);
   const errors = [];
 
   try {
-    schema.validateSync({ website: url, notOneOf: url });
+    schema.validateSync(url);
   } catch (err) {
     errors.push(err.type);
   }
@@ -53,7 +50,7 @@ const runApp = () => {
   const state = {
     form: {
       valid: true,
-      error: [],
+      errors: [],
     },
     feedsProcess: {
       status: 'readyToLoad',
@@ -66,7 +63,7 @@ const runApp = () => {
     if (path === 'form.valid') {
       renderValidation(value);
     }
-    if (path === 'form.error') {
+    if (path === 'form.errors') {
       renderError(value);
     }
     if (path === 'posts') {
@@ -86,7 +83,7 @@ const runApp = () => {
     const existingUrls = watchedState.feeds.map((feed) => feed.url);
     const validationErrors = validate(url, existingUrls);
     if (validationErrors.length > 0) {
-      watchedState.form.error = validationErrors;
+      watchedState.form.errors = validationErrors;
       watchedState.form.valid = false;
       return;
     }
@@ -94,7 +91,7 @@ const runApp = () => {
     watchedState.form.valid = true;
     axios.get(`${proxyUrl}${url}`)
       .then((response) => {
-        const parsedNews = parse(response);
+        const parsedNews = parse(response.data);
         const id = _.uniqueId();
         const feed = { feedId: id, title: parsedNews.title, url };
         watchedState.feeds.unshift(feed);
@@ -106,9 +103,9 @@ const runApp = () => {
         watchedState.feedsProcess.status = 'loadingFailed';
         watchedState.form.valid = false;
         if (!err.response) {
-          watchedState.form.error = err.name;
+          watchedState.form.errors = err.name;
         } else {
-          watchedState.form.error = err.response.status;
+          watchedState.form.errors = err.response.status;
         }
       });
   });
@@ -119,5 +116,5 @@ export default () => {
     resources: { en, ru },
     lng: 'en',
     debug: true,
-  }).then(() => runApp());
+  }).then(runApp);
 };
