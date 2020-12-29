@@ -16,32 +16,41 @@ const timeInterval = 5000;
 
 const compareTitles = (data1, data2) => data1.title === data2.title;
 
-const updateFeeds = (state, url) => {
-  Promise.all(state.feeds.map((feedData) => axios.get(`${url}${feedData.url}`)
-    .then((response) => {
-      const newData = parse(response.data);
-      const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
-      const newPosts = newData.items.map((post) => (post));
-      const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
-      if (difference.length > 0) {
-        const differenceWithId = difference.map((diff) => ({ ...diff, feedId: feedData.feedId }));
-        state.posts.unshift(...differenceWithId);
-      }
-    })
-    .catch((err) => console.log(err))))
-    .then(() => setTimeout(() => updateFeeds(state, url), timeInterval));
+const makeProxyUrl = (url) => `${proxyUrl}${url}`;
+
+const updateFeeds = (state) => {
+  Promise.allSettled(state.feeds.map((feedData) => {
+    const url = makeProxyUrl(feedData.url);
+    return axios.get(url)
+      .then((response) => {
+        const newData = parse(response.data);
+        const oldPosts = state.posts.filter((post) => post.feedId === feedData.feedId);
+        const newPosts = newData.items;
+        const difference = _.differenceWith(newPosts, oldPosts, compareTitles);
+        // Данную проверку я все равно оставила,
+        // так как без нее лишний раз изменяется state и вызывается renderChannel
+        // хотя никаких изменений в постах и фидах нет
+        // альтернативой будет добавление в watchedState проверки 'if (newPosts > 0)'
+        if (difference.length > 0) {
+          const differenceWithId = difference.map((diff) => ({ ...diff, feedId: feedData.feedId }));
+          state.posts.unshift(...differenceWithId);
+        }
+      })
+      .catch((err) => console.log(err));
+  }))
+    .then(() => setTimeout(() => updateFeeds(state), timeInterval));
 };
 
 const validate = (url, urls) => {
   const schema = yup.string().url().required().notOneOf(urls);
-  const errors = [];
+  let error = null;
 
   try {
     schema.validateSync(url);
   } catch (err) {
-    errors.push(err.type);
+    error = err.type;
   }
-  return errors;
+  return error;
 };
 
 const runApp = () => {
@@ -50,7 +59,7 @@ const runApp = () => {
   const state = {
     form: {
       valid: true,
-      errors: [],
+      error: null,
     },
     feedsProcess: {
       status: 'readyToLoad',
@@ -60,30 +69,37 @@ const runApp = () => {
   };
 
   const watchedState = onChange(state, (path, value, previousValue) => {
-    if (path === 'form.valid') {
-      renderValidation(value);
-    }
-    if (path === 'form.errors') {
-      renderError(value);
-    }
-    if (path === 'posts') {
-      renderChannel(watchedState, value, previousValue);
-    }
-    if (path === 'feedsProcess.status') {
-      renderStatus(value);
+    switch (path) {
+      case 'form.valid':
+        renderValidation(value);
+        break;
+      case 'form.error':
+        renderError(value);
+        break;
+      case 'posts': {
+        const newPosts = _.differenceWith(value, previousValue);
+        const { feedId } = newPosts[0];
+        renderChannel(watchedState, feedId);
+        break;
+      }
+      case 'feedsProcess.status':
+        renderStatus(value);
+        break;
+      default:
+        break;
     }
   });
 
-  updateFeeds(watchedState, proxyUrl);
+  updateFeeds(watchedState);
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const url = formData.get('url');
     const existingUrls = watchedState.feeds.map((feed) => feed.url);
-    const validationErrors = validate(url, existingUrls);
-    if (validationErrors.length > 0) {
-      watchedState.form.errors = validationErrors;
+    const validationError = validate(url, existingUrls);
+    if (validationError) {
+      watchedState.form.error = validationError;
       watchedState.form.valid = false;
       return;
     }
@@ -103,9 +119,9 @@ const runApp = () => {
         watchedState.feedsProcess.status = 'loadingFailed';
         watchedState.form.valid = false;
         if (!err.response) {
-          watchedState.form.errors = err.name;
+          watchedState.form.error = err.name;
         } else {
-          watchedState.form.errors = err.response.status;
+          watchedState.form.error = err.response.status;
         }
       });
   });

@@ -4,7 +4,7 @@ export default (rss) => {
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
     const error = new Error(parserError.textContent);
-    error.name = 'parserError';
+    error.name = 'ParserError';
     throw error;
   }
   const channel = doc.querySelector('channel');
